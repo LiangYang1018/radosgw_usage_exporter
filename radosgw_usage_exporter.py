@@ -25,7 +25,7 @@ class RADOSGWCollector(object):
     of ceph.conf see Ceph documentation for details"""
 
     def __init__(
-        self, host, admin_entry, access_key, secret_key, store, insecure, timeout
+        self, host, admin_entry, access_key, secret_key, store, insecure, timeout, interval
     ):
         super(RADOSGWCollector, self).__init__()
         self.host = host
@@ -34,6 +34,7 @@ class RADOSGWCollector(object):
         self.store = store
         self.insecure = insecure
         self.timeout = timeout
+        self.interval = interval
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -143,7 +144,7 @@ class RADOSGWCollector(object):
             logging.info(("Request error: {0}".format(e)))
             return
 
-    def start_bucket_refresh_timer(self, interval=36):
+    def start_bucket_refresh_timer(self):
         """
         Start a timer to refresh bucket data periodically.
         """
@@ -157,7 +158,7 @@ class RADOSGWCollector(object):
                         self.rgw_bucket_cache = {}  # Clear cache if retrieval fails
                 except Exception as e:
                     print("Error refreshing bucket data: {}".format(e))
-                time.sleep(interval)
+                time.sleep(int(self.interval))
 
         # Create and start a new thread for refreshing bucket data
         refresh_thread = threading.Thread(target=refresh_bucket_data)
@@ -607,6 +608,13 @@ def parse_args():
         help="Provide logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL",
         default=os.environ.get("LOG_LEVEL", "INFO"),
     )
+    parser.add_argument(
+        "-i",
+        "--interval",
+        required=False,
+        help="Set interval to get bucket metrics periodically",
+        default=os.environ.get("INTERVAL", "60"),
+    )
 
     return parser.parse_args()
 
@@ -624,6 +632,7 @@ def main():
                 args.store,
                 args.insecure,
                 args.timeout,
+                args.interval,
             )
         )
         start_http_server(args.port)
